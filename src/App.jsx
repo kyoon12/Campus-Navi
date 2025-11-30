@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabaseClient';
 import Login from './components/Login';
 import Signup from './components/Signup';
@@ -17,7 +17,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const initComplete = useRef(false);
 
-  // Buildings data (Collapsed for brevity - keep your existing data)
+  // Buildings data
   const [buildings, setBuildings] = useState([
     {
       name: 'College of Computer Studies',
@@ -27,7 +27,6 @@ export default function App() {
       floors: 5,
       facilities: ['Computer Labs', 'Research Center', 'Faculty Offices', 'Student Lounge', 'Conference Rooms']
     },
-    // ... rest of your buildings array ...
     {
       name: 'Main Library',
       code: 'LIB',
@@ -110,58 +109,45 @@ export default function App() {
     }
   ]);
 
-  // CORE LOGIC: Check session and update state
-  // Wrapped in useCallback to ensure stability
-  const checkSession = useCallback(async () => {
+  // Simple session check without complex database queries
+  const checkSession = async () => {
     try {
+      console.log('🔍 Checking session...');
       const { data: { session }, error } = await supabase.auth.getSession();
       
-      if (error || !session?.user) {
-        setUser(null);
-        setCurrentView('login');
+      if (error) {
+        console.error('❌ Session error:', error);
+        // Fall back to login immediately
         setIsLoading(false);
+        setCurrentView('login');
         return;
       }
 
-      // Default User Object
+      if (!session?.user) {
+        console.log('👤 No active session');
+        setIsLoading(false);
+        setCurrentView('login');
+        return;
+      }
+
+      console.log('✅ Session found for:', session.user.email);
+      
+      // Create basic user object - skip database queries for now
       const basicUser = {
         ...session.user,
         username: session.user.email?.split('@')[0] || 'user',
-        full_name: '',
-        role: 'student'
+        full_name: session.user.user_metadata?.full_name || '',
+        role: session.user.user_metadata?.role || 'student'
       };
-
-      try {
-        // Fetch Role
-        const { data: roleData } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
-
-        if (roleData) basicUser.role = roleData.role;
-        
-        // Fetch Profile Name
-        const { data: profile } = await supabase
-          .from('users')
-          .select('username, full_name')
-          .eq('id', session.user.id)
-          .single();
-          
-        if (profile) {
-          basicUser.username = profile.username || basicUser.username;
-          basicUser.full_name = profile.full_name || basicUser.full_name;
-        }
-
-      } catch (err) {
-        console.log('Minor error fetching details:', err);
-      }
 
       setUser(basicUser);
       
+      // Navigate based on role from metadata
       if (basicUser.role === 'admin') {
+        console.log('🚀 Redirecting to admin panel');
         setCurrentView('admin');
       } else {
+        console.log('🗺️ Redirecting to campus map');
         setCurrentView('map');
       }
       
@@ -169,33 +155,39 @@ export default function App() {
       initComplete.current = true;
 
     } catch (error) {
-      console.error('Session check failed:', error);
+      console.error('💥 Session check failed:', error);
+      // Always fall back to login on error
       setIsLoading(false);
       setCurrentView('login');
     }
-  }, []);
+  };
 
   useEffect(() => {
     let mounted = true;
 
-    // Safety Timeout
+    // Quick timeout - if session check takes too long, go to login
     const timeoutId = setTimeout(() => {
-      if (mounted && !initComplete.current) {
-        console.warn('Force stopping loading screen');
+      if (mounted && isLoading) {
+        console.log('⏰ Session check timeout - going to login');
         setIsLoading(false);
-        if (!user) setCurrentView('login');
+        setCurrentView('login');
       }
-    }, 4000);
+    }, 2000);
 
-    // Initial Check
+    // Initial session check
     checkSession();
 
-    // Auth Listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    // Simple auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+      
+      console.log('🔄 Auth state changed:', event);
+      
+      if (event === 'SIGNED_IN') {
+        console.log('👤 User signed in');
         checkSession();
       } else if (event === 'SIGNED_OUT') {
+        console.log('👋 User signed out');
         setUser(null);
         setCurrentView('login');
         setIsLoading(false);
@@ -207,7 +199,7 @@ export default function App() {
       clearTimeout(timeoutId);
       subscription?.unsubscribe();
     };
-  }, [checkSession]); // Added checkSession as dependency
+  }, []);
 
   const handleLogout = async () => {
     setIsLoading(true);
@@ -219,19 +211,23 @@ export default function App() {
     setCurrentView('login');
   };
 
+  // Enhanced login success handler
+  const handleLoginSuccess = async () => {
+    console.log('🔄 Manual login success trigger');
+    await checkSession();
+  };
+
   // RENDER
   const renderView = () => {
     if (isLoading) return <Loading />;
 
     switch (currentView) {
       case 'login': 
-        // Pass checkSession as onLoginSuccess so Login can trigger it manually
-        return <Login onNavigate={setCurrentView} onLoginSuccess={checkSession} />;
+        return <Login onNavigate={setCurrentView} onLoginSuccess={handleLoginSuccess} />;
       case 'signup': 
         return <Signup onNavigate={setCurrentView} onSignupSuccess={handleSignupSuccess} />;
       case 'admin-login': 
-        // Pass checkSession here too
-        return <AdminLogin onNavigate={setCurrentView} onAdminLoginSuccess={checkSession} />;
+        return <AdminLogin onNavigate={setCurrentView} onAdminLoginSuccess={handleLoginSuccess} />;
       case 'map': 
         return <CampusMap onNavigate={setCurrentView} user={user} buildings={buildings} onLogout={handleLogout} />;
       case 'info': 
@@ -245,7 +241,7 @@ export default function App() {
       case 'admin': 
         return <AdminPanel onNavigate={setCurrentView} user={user} />;
       default: 
-        return <Login onNavigate={setCurrentView} onLoginSuccess={checkSession} />;
+        return <Login onNavigate={setCurrentView} onLoginSuccess={handleLoginSuccess} />;
     }
   };
 
