@@ -10,7 +10,7 @@ import Schedule from './components/Schedule';
 import Loading from './components/Loading';
 import AdminPanel from './componentsAdmin/AdminPanel';
 import AdminLogin from './componentsAdmin/AdminLogin';
-import { registerSW } from 'virtual:pwa-register';
+import { registerSW } from 'virtual:pwa-register'
 
 export default function App() {
   const [currentView, setCurrentView] = useState('loading');
