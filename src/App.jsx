@@ -10,6 +10,7 @@ import Schedule from './components/Schedule';
 import Loading from './components/Loading';
 import AdminPanel from './componentsAdmin/AdminPanel';
 import AdminLogin from './componentsAdmin/AdminLogin';
+import { registerSW } from 'virtual:pwa-register
 
 export default function App() {
   const [currentView, setCurrentView] = useState('loading');
@@ -108,6 +109,11 @@ export default function App() {
       facilities: ['Emergency Room', 'Consultation Rooms', 'Pharmacy', 'Laboratory', 'Wellness Center']
     }
   ]);
+  
+   const updateSW = registerSW({
+    onNeedRefresh() {},
+    onOfflineReady() {},
+  })
 
   // Simple session check without complex database queries
   const checkSession = async () => {
