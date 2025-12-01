@@ -7,7 +7,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
+      includeAssets: [
+        'favicon.ico',
+        'robots.txt',
+        'apple-touch-icon.png'
+      ],
       manifest: {
         name: 'Campus Navi',
         short_name: 'CampusNavi',
@@ -33,5 +37,8 @@ export default defineConfig({
         ]
       }
     })
-  ]
+  ],
+  build: {
+    outDir: 'dist'
+  }
 })
