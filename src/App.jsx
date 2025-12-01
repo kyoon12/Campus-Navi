@@ -110,12 +110,12 @@ export default function App() {
     }
   ]);
 
+  // Simple session check without complex database queries
    const updateSW = registerSW({
     onNeedRefresh() {},
     onOfflineReady() {},
-  })
-
-  // Simple session check without complex database queries
+   })
+   
   const checkSession = async () => {
     try {
       console.log('🔍 Checking session...');
